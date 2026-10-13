@@ -20,16 +20,16 @@ document.querySelector('#app').innerHTML = `
       <p class="panel-description">整理功能背景與限制，讓驗收條件更清楚。</p>
       <form class="requirements-form">
         <div class="field">
-          <label for="feature-name">功能名稱</label>
-          <input id="feature-name" name="featureName" type="text" placeholder="例如：會員重設密碼">
+          <label for="feature-name">功能名稱（必填）</label>
+          <input id="feature-name" name="featureName" type="text" required placeholder="例如：會員重設密碼">
         </div>
         <div class="field">
-          <label for="user-role">使用者角色</label>
-          <input id="user-role" name="userRole" type="text" placeholder="例如：忘記密碼的已註冊會員">
+          <label for="user-role">使用者角色（必填）</label>
+          <input id="user-role" name="userRole" type="text" required placeholder="例如：忘記密碼的已註冊會員">
         </div>
         <div class="field">
-          <label for="original-requirement">原始需求</label>
-          <textarea id="original-requirement" name="originalRequirement" rows="5" placeholder="例如：會員可以輸入註冊信箱，收到重設密碼連結，並設定新密碼。"></textarea>
+          <label for="original-requirement">原始需求（必填）</label>
+          <textarea id="original-requirement" name="originalRequirement" rows="5" required placeholder="例如：會員可以輸入註冊信箱，收到重設密碼連結，並設定新密碼。"></textarea>
         </div>
         <div class="field">
           <label for="platform">使用平台</label>
@@ -43,18 +43,72 @@ document.querySelector('#app').innerHTML = `
           <label for="additional-constraints">補充限制 <span class="optional">（選填）</span></label>
           <textarea id="additional-constraints" name="additionalConstraints" rows="4" placeholder="例如：重設連結在 30 分鐘後失效，新密碼至少需要 8 個字元。"></textarea>
         </div>
-        <button type="button" aria-describedby="static-preview-note">產生驗收條件</button>
-        <p id="static-preview-note" class="form-note">目前為靜態預覽，按鈕尚未提供產生功能。</p>
+        <button type="submit" aria-describedby="rule-draft-note">產生驗收條件</button>
+        <p id="rule-draft-note" class="form-note">依填寫內容產生規則式草稿，驗收條件仍需人工檢視。</p>
       </form>
     </section>
     <section class="panel result-panel" aria-labelledby="result-title">
       <h2 id="result-title">驗收條件結果</h2>
-      <p class="panel-description">產生後的驗收條件將顯示於此。</p>
-      <div class="empty-state">
-        <h3>尚未產生驗收條件</h3>
-        <p>請先在表單填寫功能需求。此版本僅展示介面，尚不會產生結果。</p>
+      <p class="panel-description">產生後的規則式草稿將顯示於此。</p>
+      <div id="acceptance-result" aria-live="polite" aria-atomic="true">
+        <div class="empty-state">
+          <h3>尚未產生驗收條件</h3>
+          <p>請先填寫必填欄位，再產生規則式草稿。</p>
+        </div>
       </div>
     </section>
   </div>
 </main>
 `
+
+const form = document.querySelector('.requirements-form')
+const result = document.querySelector('#acceptance-result')
+const requiredFields = [...form.querySelectorAll('[required]')]
+
+requiredFields.forEach((field) => {
+  field.addEventListener('input', () => {
+    field.setCustomValidity('')
+  })
+})
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault()
+
+  const values = Object.fromEntries(
+    [...new FormData(form)].map(([name, value]) => [name, value.trim()]),
+  )
+
+  requiredFields.forEach((field) => {
+    field.setCustomValidity(values[field.name] ? '' : '請填寫此欄位，不能只輸入空白。')
+  })
+
+  if (!form.reportValidity()) return
+
+  const platform = form.elements.namedItem('platform')
+  const platformLabel = platform.selectedOptions[0].textContent.trim()
+  const given = `使用者為「${values.userRole}」，使用平台為「${platformLabel}」。`
+    + (values.additionalConstraints ? `補充限制：${values.additionalConstraints}` : '')
+
+  const draft = document.createElement('div')
+  draft.className = 'acceptance-draft'
+
+  const title = document.createElement('h3')
+  title.textContent = `功能名稱：${values.featureName}`
+  draft.append(title)
+
+  const conditions = [
+    ['Given', given],
+    ['When', `使用者操作「${values.featureName}」功能。`],
+    ['Then', values.originalRequirement],
+  ]
+
+  conditions.forEach(([label, content]) => {
+    const paragraph = document.createElement('p')
+    const heading = document.createElement('strong')
+    heading.textContent = `${label}：`
+    paragraph.append(heading, document.createTextNode(content))
+    draft.append(paragraph)
+  })
+
+  result.replaceChildren(draft)
+})
