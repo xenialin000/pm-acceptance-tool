@@ -56,6 +56,8 @@ document.querySelector('#app').innerHTML = `
           <p>請先填寫必填欄位，再產生規則式草稿。</p>
         </div>
       </div>
+      <button id="copy-result" type="button" hidden aria-describedby="copy-status">複製結果</button>
+      <p id="copy-status" role="status" aria-live="polite" aria-atomic="true"></p>
     </section>
   </div>
 </main>
@@ -64,6 +66,41 @@ document.querySelector('#app').innerHTML = `
 const form = document.querySelector('.requirements-form')
 const result = document.querySelector('#acceptance-result')
 const requiredFields = [...form.querySelectorAll('[required]')]
+const copyButton = document.querySelector('#copy-result')
+const copyStatus = document.querySelector('#copy-status')
+let latestResultText = ''
+let resultVersion = 0
+let copyResetTimer
+
+copyButton.addEventListener('click', async () => {
+  if (!latestResultText || copyButton.disabled) return
+
+  const version = resultVersion
+  const textToCopy = latestResultText
+  clearTimeout(copyResetTimer)
+  copyButton.disabled = true
+  copyButton.textContent = '複製中…'
+  copyStatus.textContent = ''
+
+  try {
+    await navigator.clipboard.writeText(textToCopy)
+    if (version !== resultVersion) return
+
+    copyButton.textContent = '已複製'
+    copyStatus.textContent = '結果已複製到剪貼簿。'
+    copyResetTimer = setTimeout(() => {
+      copyButton.textContent = '複製結果'
+      copyStatus.textContent = ''
+    }, 2000)
+  } catch {
+    if (version !== resultVersion) return
+
+    copyButton.textContent = '複製結果'
+    copyStatus.textContent = '無法複製結果，請手動選取結果文字後複製。'
+  } finally {
+    if (version === resultVersion) copyButton.disabled = false
+  }
+})
 
 requiredFields.forEach((field) => {
   field.addEventListener('input', () => {
@@ -111,4 +148,14 @@ form.addEventListener('submit', (event) => {
   })
 
   result.replaceChildren(draft)
+  latestResultText = [
+    title.textContent,
+    ...conditions.map(([label, content]) => `${label}：${content}`),
+  ].join('\n\n')
+  resultVersion += 1
+  clearTimeout(copyResetTimer)
+  copyButton.hidden = false
+  copyButton.disabled = false
+  copyButton.textContent = '複製結果'
+  copyStatus.textContent = ''
 })

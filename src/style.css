@@ -260,6 +260,22 @@ button {
   align-self: start;
 }
 
+#copy-result {
+  margin-top: 16px;
+  cursor: pointer;
+}
+
+#copy-result:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+#copy-status {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
 .empty-state {
   display: grid;
   align-content: center;
