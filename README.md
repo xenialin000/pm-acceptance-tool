@@ -8,6 +8,10 @@ This portfolio project demonstrates a focused product workflow: collecting requi
 
 The generator uses a fixed, rule-based template. It does not use AI, call external APIs, or analyze the meaning of requirements.
 
+## Live Demo
+
+[Open the PM Acceptance Criteria Generator](https://xenialin000.github.io/pm-acceptance-tool/)
+
 ## Features
 
 - Capture a feature name, user role, original requirement, platform, and optional constraints.
