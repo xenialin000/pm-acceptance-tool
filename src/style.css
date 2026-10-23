@@ -256,6 +256,17 @@ button {
   font-size: 14px;
 }
 
+.secondary-button {
+  background: var(--bg);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+#draft-status {
+  color: var(--text-h);
+  font-size: 14px;
+}
+
 .result-panel {
   align-self: start;
 }

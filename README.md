@@ -21,6 +21,8 @@ The generator uses a fixed, rule-based template. It does not use AI, call extern
 - Copy the latest draft as plain text, with progress, success, and failure feedback.
 - Support responsive layouts and system light/dark preferences.
 - Provide labeled form fields, visible keyboard focus, and live status announcements.
+- Automatically save all five form fields locally and restore them on reload, preserving whitespace and line breaks.
+- Clear all form content, generated results, and copy feedback with 「清除全部」; the platform returns to Web.
 
 The interface and generated draft text are currently in Traditional Chinese.
 
@@ -44,6 +46,11 @@ The output is a starting point for review. Users still need to clarify expected 
 - The current MVP uses deterministic rules to keep the output transparent, predictable, and free from API cost.
 - Copying uses the latest successfully generated draft rather than unsubmitted form edits, so the copied text always matches the visible result.
 - User input is inserted through text-only DOM APIs to prevent it from being interpreted as executable HTML.
+- Only form fields are stored under `pm-acceptance-tool:draft:v1` in localStorage. Generated results and copy status are never stored.
+- Drafts are scoped to the same browser and origin, with no cross-tab synchronization. Avoid entering sensitive information on shared devices.
+- Invalid JSON and invalid top-level draft data are ignored and removal is attempted. Invalid field types are skipped, and unknown platforms fall back to Web.
+- Storage failures leave generation and copying available. Write failures are announced only once per page visit; a later successful save clears the status. Failed deletion is reported because an old draft may return on reload.
+- Clearing all invalidates pending copy feedback and cancels its reset timer. An already requested clipboard write may still complete, but cannot update the cleared interface.
 
 ## Tech Stack
 
@@ -87,7 +94,7 @@ The build command generates production files in `dist/`. The preview command ser
 - Does not interpret requirements, resolve ambiguity, or generate missing edge cases.
 - Uses the original requirement as the Then statement, which may still need rewriting into a testable outcome.
 - Treats additional constraints as text; it does not validate their business rules.
-- Does not save drafts or provide history; refreshing the page clears the current input and result.
+- Does not provide draft history. Reloading restores locally saved form fields, but clears generated results. Draft persistence depends on browser storage availability and browser data retention.
 - Clipboard copying depends on browser support and permissions and generally requires HTTPS or localhost. If copying fails, users can select and copy the result manually.
 - No automated test suite is currently configured.
 
