@@ -45,6 +45,8 @@ document.querySelector('#app').innerHTML = `
         </div>
         <button type="submit" aria-describedby="rule-draft-note">產生驗收條件</button>
         <p id="rule-draft-note" class="form-note">依填寫內容產生規則式草稿，驗收條件仍需人工檢視。</p>
+        <button id="clear-all" class="secondary-button" type="button">清除全部</button>
+        <p id="draft-status" role="status" aria-live="polite" aria-atomic="true"></p>
       </form>
     </section>
     <section class="panel result-panel" aria-labelledby="result-title">
@@ -68,9 +70,95 @@ const result = document.querySelector('#acceptance-result')
 const requiredFields = [...form.querySelectorAll('[required]')]
 const copyButton = document.querySelector('#copy-result')
 const copyStatus = document.querySelector('#copy-status')
+const clearButton = document.querySelector('#clear-all')
+const draftStatus = document.querySelector('#draft-status')
+const draftKey = 'pm-acceptance-tool:draft:v1'
+const draftFieldNames = [
+  'featureName', 'userRole', 'originalRequirement', 'platform', 'additionalConstraints',
+]
+const emptyResult = result.firstElementChild.cloneNode(true)
+const saveErrorMessage = '草稿無法保存，請勿依賴重新整理後還原內容。'
+let saveErrorReported = false
 let latestResultText = ''
 let resultVersion = 0
 let copyResetTimer
+
+function restoreDraft() {
+  let stored
+  try {
+    stored = window.localStorage.getItem(draftKey)
+  } catch {
+    draftStatus.textContent = '無法讀取本機草稿，仍可填寫表單與產生驗收條件。'
+    return
+  }
+  if (stored === null) return
+
+  let draft
+  try {
+    draft = JSON.parse(stored)
+    if (draft === null || typeof draft !== 'object' || Array.isArray(draft)) {
+      throw new Error('Invalid draft')
+    }
+  } catch {
+    try {
+      window.localStorage.removeItem(draftKey)
+      draftStatus.textContent = '草稿資料無效，已移除，請重新填寫。'
+    } catch {
+      draftStatus.textContent = '草稿資料無效，且無法刪除本機草稿；重新載入時可能再次出現此提示。'
+    }
+    return
+  }
+
+  draftFieldNames.forEach((name) => {
+    const field = form.elements.namedItem(name)
+    if (!Object.hasOwn(draft, name) || typeof draft[name] !== 'string') return
+    if (name === 'platform' && ![...field.options].some((option) => option.value === draft[name])) return
+    field.value = draft[name]
+  })
+}
+
+function saveDraft() {
+  const draft = Object.fromEntries(
+    draftFieldNames.map((name) => [name, form.elements.namedItem(name).value]),
+  )
+  try {
+    window.localStorage.setItem(draftKey, JSON.stringify(draft))
+    if (draftStatus.textContent) draftStatus.textContent = ''
+  } catch {
+    // Report write failures only once per page visit, including after recovery.
+    if (!saveErrorReported) {
+      draftStatus.textContent = saveErrorMessage
+      saveErrorReported = true
+    }
+  }
+}
+
+restoreDraft()
+draftFieldNames.forEach((name) => {
+  const field = form.elements.namedItem(name)
+  field.addEventListener(name === 'platform' ? 'change' : 'input', saveDraft)
+})
+
+clearButton.addEventListener('click', () => {
+  resultVersion += 1
+  clearTimeout(copyResetTimer)
+  form.reset()
+  requiredFields.forEach((field) => field.setCustomValidity(''))
+  latestResultText = ''
+  result.replaceChildren(emptyResult.cloneNode(true))
+  copyButton.hidden = true
+  copyButton.disabled = false
+  copyButton.textContent = '複製結果'
+  copyStatus.textContent = ''
+
+  try {
+    window.localStorage.removeItem(draftKey)
+    draftStatus.textContent = '已清除全部表單內容與驗收結果。'
+  } catch {
+    draftStatus.textContent = '畫面已清空，但無法刪除本機草稿；重新載入時可能再次還原。'
+  }
+  form.elements.namedItem('featureName').focus()
+})
 
 copyButton.addEventListener('click', async () => {
   if (!latestResultText || copyButton.disabled) return
@@ -89,6 +177,7 @@ copyButton.addEventListener('click', async () => {
     copyButton.textContent = '已複製'
     copyStatus.textContent = '結果已複製到剪貼簿。'
     copyResetTimer = setTimeout(() => {
+      if (version !== resultVersion) return
       copyButton.textContent = '複製結果'
       copyStatus.textContent = ''
     }, 2000)
